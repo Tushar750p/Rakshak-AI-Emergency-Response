@@ -1,38 +1,15 @@
-const state={type:'Accident',lat:null,lng:null,evidence:null};
+const state={type:'Accident',lat:null,lng:null,evidence:null,stream:null,watchId:null};
 const $=id=>document.getElementById(id);
-const incidents=[
- {type:'Accident',place:'College Road • 2 vehicles',priority:'CRITICAL',time:'Just now',color:'red'},
- {type:'Violence',place:'Market area • crowd reported',priority:'CRITICAL',time:'2 min ago',color:'red'},
- {type:'Fire',place:'Industrial zone • smoke',priority:'HIGH',time:'5 min ago',color:'orange'},
- {type:'Medical Emergency',place:'Main bus stand',priority:'HIGH',time:'8 min ago',color:'orange'},
- {type:'Road Blockage',place:'Station Road',priority:'MEDIUM',time:'12 min ago',color:'yellow'},
- {type:'Accident',place:'Ring Road • minor collision',priority:'MEDIUM',time:'16 min ago',color:'yellow'}
-];
-function renderQueue(){
- $('incidentList').innerHTML=incidents.map((x,i)=>`<div class="queue-item"><i class="qdot ${x.color}"></i><div class="q-main"><b>${x.type}</b><span>${x.place}</span></div><div class="q-meta"><strong>${x.priority}</strong>${x.time}</div></div>`).join('');
-}
+const incidents=[{type:'Accident',place:'College Road • 2 vehicles',priority:'CRITICAL',time:'Just now',color:'red'},{type:'Violence',place:'Market area • crowd reported',priority:'CRITICAL',time:'2 min ago',color:'red'},{type:'Fire',place:'Industrial zone • smoke',priority:'HIGH',time:'5 min ago',color:'orange'},{type:'Medical Emergency',place:'Main bus stand',priority:'HIGH',time:'8 min ago',color:'orange'},{type:'Road Blockage',place:'Station Road',priority:'MEDIUM',time:'12 min ago',color:'yellow'},{type:'Accident',place:'Ring Road • minor collision',priority:'MEDIUM',time:'16 min ago',color:'yellow'}];
+function renderQueue(){ $('incidentList').innerHTML=incidents.map(x=>`<div class="queue-item"><i class="qdot ${x.color}"></i><div class="q-main"><b>${x.type}</b><span>${x.place}</span></div><div class="q-meta"><strong>${x.priority}</strong>${x.time}</div></div>`).join(''); }
 function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000)}
-function getGPS(){
- $('locationText').textContent='Requesting precise location…';
- if(!navigator.geolocation){$('locationText').textContent='Geolocation is not supported by this browser.';return}
- navigator.geolocation.getCurrentPosition(pos=>{state.lat=pos.coords.latitude;state.lng=pos.coords.longitude;$('locationText').textContent=`${state.lat.toFixed(6)}, ${state.lng.toFixed(6)} • accuracy ±${Math.round(pos.coords.accuracy)}m`;toast('GPS location captured');},err=>{$('locationText').textContent='Location permission unavailable — you can still preview the demo.';toast('GPS permission was not granted');},{enableHighAccuracy:true,timeout:10000,maximumAge:0});
-}
-function showPreview(file){
- const box=$('preview');box.innerHTML='';state.evidence=file;
- const url=URL.createObjectURL(file);const el=file.type.startsWith('video/')?document.createElement('video'):document.createElement('img');
- el.src=url;if(el.tagName==='VIDEO'){el.controls=true;el.muted=true;el.playsInline=true}box.appendChild(el);
-}
+function updateLocation(pos){state.lat=pos.coords.latitude;state.lng=pos.coords.longitude;$('locationText').textContent=`${state.lat.toFixed(6)}, ${state.lng.toFixed(6)} • accuracy ±${Math.round(pos.coords.accuracy)}m • LIVE`}
+function getGPS(){ $('locationText').textContent='Requesting precise location…';if(!navigator.geolocation){$('locationText').textContent='Geolocation is not supported by this browser.';return} if(state.watchId!==null)navigator.geolocation.clearWatch(state.watchId); state.watchId=navigator.geolocation.watchPosition(updateLocation,()=>{$('locationText').textContent='Location permission unavailable — demo still works.';toast('GPS permission was not granted')},{enableHighAccuracy:true,timeout:10000,maximumAge:0});toast('Live GPS tracking enabled') }
+function showPreview(file){const box=$('preview');box.innerHTML='';state.evidence=file;const url=URL.createObjectURL(file);const el=file.type.startsWith('video/')?document.createElement('video'):document.createElement('img');el.src=url;if(el.tagName==='VIDEO'){el.controls=true;el.muted=true;el.playsInline=true}box.appendChild(el)}
+async function startCamera(){if(!navigator.mediaDevices?.getUserMedia){toast('Live camera is not supported in this browser.');return}try{state.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});$('cameraPreview').srcObject=state.stream;$('cameraPlaceholder').style.display='none';$('recordingDot').style.display='block';$('cameraBtn').hidden=true;$('cameraStop').hidden=false;toast('Live camera started')}catch(e){toast('Camera permission was not granted.')}}
+function stopCamera(){if(state.stream)state.stream.getTracks().forEach(t=>t.stop());state.stream=null;$('cameraPreview').srcObject=null;$('cameraPlaceholder').style.display='grid';$('recordingDot').style.display='none';$('cameraBtn').hidden=false;$('cameraStop').hidden=true;toast('Live camera stopped')}
 document.querySelectorAll('.incident').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.incident').forEach(b=>b.classList.remove('active'));btn.classList.add('active');state.type=btn.dataset.type}));
 $('evidenceInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;if(f.size>25*1024*1024){toast('Please choose a file under 25 MB for this demo.');e.target.value='';return}showPreview(f)});
-$('locateBtn').addEventListener('click',getGPS);
-$('dashboardBtn').addEventListener('click',()=>$('dashboard').scrollIntoView({behavior:'smooth'}));
-$('sendBtn').addEventListener('click',()=>{
- const id='RK-'+Math.floor(100000+Math.random()*900000);const now=new Date();
- $('successText').textContent=`Your ${state.type.toLowerCase()} report has been added to the demo emergency workflow.`;
- $('successMeta').innerHTML=`<b>Incident ID:</b> <span>${id}</span><br><b>Priority:</b> <span>${state.type==='Accident'||state.type==='Fire'||state.type==='Violence'?'HIGH':'MEDIUM'}</span><br><b>Time:</b> <span>${now.toLocaleString()}</span><br><b>GPS:</b> <span>${state.lat?`${state.lat.toFixed(6)}, ${state.lng.toFixed(6)}`:'Not available'}</span><br><b>Evidence:</b> <span>${state.evidence?state.evidence.name:'None'}</span>`;
- if($('successDialog').showModal)$('successDialog').showModal();else toast('Report received: '+id);
-});
-$('closeDialog').addEventListener('click',()=>{$('successDialog').close();$('reportCard').scrollIntoView({behavior:'smooth'});});
-document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter')$('sendBtn').click()});
-renderQueue();
-setTimeout(()=>{if(navigator.geolocation)getGPS()},700);
+$('locateBtn').addEventListener('click',getGPS);$('cameraBtn').addEventListener('click',startCamera);$('cameraStop').addEventListener('click',stopCamera);$('dashboardBtn').addEventListener('click',()=>$('dashboard').scrollIntoView({behavior:'smooth'}));
+$('sendBtn').addEventListener('click',()=>{const id='RK-'+Math.floor(100000+Math.random()*900000),now=new Date();$('successText').textContent=`Your ${state.type.toLowerCase()} report has entered the demo emergency workflow.`;$('successMeta').innerHTML=`<b>Incident ID:</b> <span>${id}</span><br><b>Priority:</b> <span>${['Accident','Fire','Violence','Medical Emergency'].includes(state.type)?'HIGH':'MEDIUM'}</span><br><b>Time:</b> <span>${now.toLocaleString()}</span><br><b>GPS:</b> <span>${state.lat?`${state.lat.toFixed(6)}, ${state.lng.toFixed(6)}`:'Not available'}</span><br><b>Live camera:</b> <span>${state.stream?'Active':'Off'}</span><br><b>Evidence:</b> <span>${state.evidence?state.evidence.name:'None'}</span>`;if($('successDialog').showModal)$('successDialog').showModal();else toast('Report received: '+id)});
+$('closeDialog').addEventListener('click',()=>{$('successDialog').close();$('reportCard').scrollIntoView({behavior:'smooth'})});document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter')$('sendBtn').click()});window.addEventListener('beforeunload',()=>{if(state.watchId!==null)navigator.geolocation.clearWatch(state.watchId);stopCamera()});renderQueue();setTimeout(()=>{if(navigator.geolocation)getGPS()},700);
