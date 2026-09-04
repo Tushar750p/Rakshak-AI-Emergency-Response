@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07111f">
+  <title>Rakshak AI — Emergency Response</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">R</span><div><strong>Rakshak AI</strong><small>Emergency Response Platform</small></div></div>
+    <div class="top-actions"><span class="system-pill"><i></i> Demo Control Network</span><button class="ghost-btn" id="dashboardBtn">Command Center</button></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">AI • GPS • REAL-TIME RESPONSE</span>
+        <h1>Report an emergency.<br><em>Help can find you faster.</em></h1>
+        <p>Capture a photo or video, share your location, and send a structured incident report to the emergency-response workflow.</p>
+        <div class="hero-stats"><div><strong>01</strong><span>Capture</span></div><div><strong>02</strong><span>Locate</span></div><div><strong>03</strong><span>Respond</span></div></div>
+      </div>
+      <div class="report-card" id="reportCard">
+        <div class="card-head"><div><span class="section-kicker">PUBLIC REPORT</span><h2>Report an incident</h2></div><span class="secure">● Secure demo</span></div>
+        <div class="incident-grid" id="incidentTypes">
+          <button class="incident active" data-type="Accident"><span>🚗</span><b>Accident</b><small>Crash / collision</small></button>
+          <button class="incident" data-type="Violence"><span>🥊</span><b>Violence</b><small>Fight / disturbance</small></button>
+          <button class="incident" data-type="Fire"><span>🔥</span><b>Fire</b><small>Smoke / flames</small></button>
+          <button class="incident" data-type="Medical Emergency"><span>🆘</span><b>Medical</b><small>Person needs help</small></button>
+          <button class="incident" data-type="Road Blockage"><span>🚧</span><b>Road Block</b><small>Traffic obstruction</small></button>
+          <button class="incident" data-type="Other"><span>•••</span><b>Other</b><small>Something else</small></button>
+        </div>
+        <div class="capture-row">
+          <label class="capture-box" for="evidenceInput"><input id="evidenceInput" type="file" accept="image/*,video/*" capture="environment"><span class="capture-icon">＋</span><b>Capture / upload evidence</b><small>Photo or video • Max demo file 25 MB</small></label>
+          <div class="preview" id="preview"><span>No evidence selected</span></div>
+        </div>
+        <div class="location-row"><div class="location-icon">⌖</div><div class="location-copy"><b>Location</b><span id="locationText">Waiting for GPS permission…</span></div><button class="small-btn" id="locateBtn">Use my GPS</button></div>
+        <textarea id="description" rows="2" placeholder="Optional: tell responders what is happening…"></textarea>
+        <button class="send-btn" id="sendBtn"><span>🚨</span> Send emergency report <kbd>⌘ ↵</kbd></button>
+        <p class="fineprint">Demo mode: this prototype does not contact real police, ambulance, or fire services.</p>
+      </div>
+    </section>
+
+    <section class="dashboard" id="dashboard">
+      <div class="section-title"><div><span class="section-kicker">COMMAND CENTER</span><h2>Live incident operations</h2></div><span class="live-badge"><i></i> LIVE DEMO</span></div>
+      <div class="metrics"><div class="metric"><span>ACTIVE INCIDENTS</span><strong id="activeCount">6</strong><small>Across the demo network</small></div><div class="metric danger"><span>CRITICAL</span><strong id="criticalCount">2</strong><small>Needs immediate attention</small></div><div class="metric"><span>RESPONDERS</span><strong>14</strong><small>8 police • 4 medical • 2 fire</small></div><div class="metric"><span>AVG RESPONSE</span><strong>06:42</strong><small>Demo estimate</small></div></div>
+      <div class="ops-grid">
+        <div class="map-card"><div class="map-toolbar"><b>Incident map</b><span>Auto-refresh 10s</span></div><div class="fake-map" id="fakeMap"><div class="map-grid"></div><div class="road r1"></div><div class="road r2"></div><div class="road r3"></div><div class="map-label l1">Central Zone</div><div class="map-label l2">Station Road</div><button class="pin pin-red p1">🚨<span>2</span></button><button class="pin pin-orange p2">!</button><button class="pin pin-yellow p3">!</button><button class="pin pin-blue p4">🚑</button><button class="pin pin-blue p5">👮</button></div><div class="map-legend"><span><i class="dot red"></i>Critical</span><span><i class="dot orange"></i>High</span><span><i class="dot yellow"></i>Medium</span><span><i class="dot blue"></i>Responder</span></div></div>
+        <div class="incidents-card"><div class="list-head"><div><b>Priority queue</b><span>Newest first</span></div><button class="filter-btn">All ▾</button></div><div id="incidentList" class="incident-list"></div></div>
+      </div>
+    </section>
+
+    <section class="workflow"><span class="section-kicker">RESPONSE FLOW</span><h2>One report. One coordinated response.</h2><div class="flow"><div><b>01</b><strong>Capture</strong><span>Photo, video and optional description</span></div><i>→</i><div><b>02</b><strong>Locate</strong><span>GPS, time and evidence metadata</span></div><i>→</i><div><b>03</b><strong>Assess</strong><span>AI-assisted incident classification</span></div><i>→</i><div><b>04</b><strong>Dispatch</strong><span>Authorized control-room routing</span></div></div></section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <dialog id="successDialog"><div class="success-icon">✓</div><h2>Report received</h2><p id="successText">Incident has entered the emergency workflow.</p><div class="success-meta" id="successMeta"></div><button class="send-btn" id="closeDialog">Back to safety</button></dialog>
+  <script src="app.js"></script>
+</body>
+</html>
