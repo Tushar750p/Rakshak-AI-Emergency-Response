@@ -6,7 +6,7 @@ import json
 import sqlite3
 import uuid
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -79,11 +79,16 @@ def row(r):
     if not r: return None
     d=dict(r); d["live_video"]=bool(d["live_video"]); return d
 
+def public_row(r):
+    d=row(r)
+    if not d: return None
+    return {k:d[k] for k in ("id","type","status","priority","latitude","longitude","created_at","updated_at","live_video")}
+
 @asynccontextmanager
 async def lifespan(app):
     init_db(); yield
 
-app=FastAPI(title="Rakshak AI Emergency API", version="1.0.0", lifespan=lifespan)
+app=FastAPI(title="Rakshak AI Emergency API", version="1.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
 
 @app.get("/api/health")
@@ -94,7 +99,7 @@ async def create_incident(payload: IncidentIn):
     now=datetime.now(timezone.utc).isoformat(); iid="RK-"+uuid.uuid4().hex[:8].upper()
     p=priority(payload.type)
     c=conn(); c.execute("INSERT INTO incidents VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(iid,payload.type,"OPEN",p,payload.latitude,payload.longitude,payload.accuracy,payload.description,payload.reporter_id,int(payload.live_video),None,None,now,now)); c.execute("INSERT INTO events(incident_id,event,details,created_at) VALUES(?,?,?,?)",(iid,"INCIDENT_CREATED",json.dumps({"source":"public"}),now)); c.commit(); c.close()
-    incident=row(conn().execute("SELECT * FROM incidents WHERE id=?",(iid,)).fetchone())
+    c=conn(); incident=row(c.execute("SELECT * FROM incidents WHERE id=?",(iid,)).fetchone()); c.close()
     await hub.broadcast({"event":"incident.created","incident":incident})
     return incident
 
@@ -108,13 +113,13 @@ async def upload_evidence(incident_id: str, file: UploadFile = File(...)):
     (UPLOADS/name).write_bytes(data)
     now=datetime.now(timezone.utc).isoformat(); c=conn(); cur=c.execute("UPDATE incidents SET evidence_name=?, evidence_hash=?, updated_at=? WHERE id=?",(name,digest,now,incident_id)); c.execute("INSERT INTO events(incident_id,event,details,created_at) VALUES(?,?,?,?)",(incident_id,"EVIDENCE_UPLOADED",json.dumps({"sha256":digest,"filename":file.filename}),now)); c.commit(); c.close()
     if cur.rowcount==0: raise HTTPException(404,"Incident not found")
-    incident=row(conn().execute("SELECT * FROM incidents WHERE id=?",(incident_id,)).fetchone())
+    c=conn(); incident=row(c.execute("SELECT * FROM incidents WHERE id=?",(incident_id,)).fetchone()); c.close()
     await hub.broadcast({"event":"incident.updated","incident":incident})
     return {"incident":incident,"sha256":digest}
 
 @app.get("/api/incidents")
-def list_incidents(limit:int=50):
-    c=conn(); rows=c.execute("SELECT * FROM incidents ORDER BY created_at DESC LIMIT ?",(min(max(limit,1),200),)).fetchall(); c.close(); return [row(x) for x in rows]
+def list_incidents(limit:int=50, active_only:bool=False):
+    c=conn(); q="SELECT * FROM incidents" + (" WHERE status NOT IN ('RESOLVED','CANCELLED')" if active_only else "") + " ORDER BY created_at DESC LIMIT ?"; rows=c.execute(q,(min(max(limit,1),200),)).fetchall(); c.close(); return [row(x) for x in rows]
 
 @app.get("/api/incidents/{incident_id}")
 def get_incident(incident_id:str):
@@ -122,13 +127,23 @@ def get_incident(incident_id:str):
     if not r: raise HTTPException(404,"Incident not found")
     d=row(r); d["events"]= [dict(x) for x in events]; return d
 
+@app.get("/api/public/summary")
+def public_summary():
+    c=conn()
+    today=datetime.now(timezone.utc).date().isoformat()
+    totals=c.execute("SELECT COUNT(*) total, SUM(CASE WHEN status NOT IN ('RESOLVED','CANCELLED') THEN 1 ELSE 0 END) active, SUM(CASE WHEN priority='CRITICAL' AND status NOT IN ('RESOLVED','CANCELLED') THEN 1 ELSE 0 END) critical FROM incidents").fetchone()
+    daily=c.execute("SELECT type, COUNT(*) count FROM incidents WHERE substr(created_at,1,10)=? GROUP BY type ORDER BY count DESC",(today,)).fetchall()
+    recent=c.execute("SELECT * FROM incidents WHERE substr(created_at,1,10)=? ORDER BY created_at DESC LIMIT 100",(today,)).fetchall()
+    c.close()
+    return {"date":today,"totals":{"all":totals["total"] or 0,"active":totals["active"] or 0,"critical_active":totals["critical"] or 0},"by_type":[dict(x) for x in daily],"incidents":[public_row(x) for x in recent]}
+
 @app.patch("/api/incidents/{incident_id}/status")
 async def update_status(incident_id:str, payload:StatusIn):
-    allowed={"OPEN","ACKNOWLEDGED","DISPATCHED","RESOLVED","CANCELLED"}
+    allowed={"OPEN","ACKNOWLEDGED","DISPATCHED","ON_SCENE","RESOLVED","CANCELLED"}
     if payload.status not in allowed: raise HTTPException(400,"Invalid status")
     now=datetime.now(timezone.utc).isoformat(); c=conn(); cur=c.execute("UPDATE incidents SET status=?,updated_at=? WHERE id=?",(payload.status,now,incident_id)); c.execute("INSERT INTO events(incident_id,event,details,created_at) VALUES(?,?,?,?)",(incident_id,"STATUS_CHANGED",json.dumps({"status":payload.status}),now)); c.commit(); c.close()
     if cur.rowcount==0: raise HTTPException(404,"Incident not found")
-    incident=row(conn().execute("SELECT * FROM incidents WHERE id=?",(incident_id,)).fetchone()); await hub.broadcast({"event":"incident.updated","incident":incident}); return incident
+    c=conn(); incident=row(c.execute("SELECT * FROM incidents WHERE id=?",(incident_id,)).fetchone()); c.close(); await hub.broadcast({"event":"incident.updated","incident":incident}); return incident
 
 @app.post("/api/incidents/{incident_id}/location")
 async def add_location(incident_id:str,payload:LocationIn):
