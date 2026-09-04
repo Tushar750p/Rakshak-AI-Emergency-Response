@@ -1,0 +1,10 @@
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - rakshak-data:/app/data
+    restart: unless-stopped
+volumes:
+  rakshak-data:
