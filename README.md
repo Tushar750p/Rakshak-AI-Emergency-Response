@@ -1,27 +1,56 @@
 # Rakshak AI — Emergency Response Platform
 
-An advanced prototype for rapid public incident reporting and emergency-response coordination.
+Rakshak AI is being built as a real-time emergency incident intake and coordination platform: public reports can carry GPS, timestamps, evidence and live updates into an operator command center.
 
-## MVP capabilities
+## What is real now
 
-- Public incident reporting with photo/video capture
-- Automatic browser GPS capture and timestamp
-- Incident categories: accident, violence, fire, medical emergency, road blockage, other
-- Priority suggestion based on incident type
-- Optional live camera preview for a responder/control-room demo
-- Command-center dashboard with live incident cards and map
-- Simulated responder assignment and status workflow
-- Duplicate/incident clustering concept in the dashboard
-- Privacy-first demo: no real police/ambulance dispatch is performed
+- FastAPI backend with persistent SQLite incident database
+- REST API for incident creation, listing, detail and status updates
+- Evidence upload with type/size validation and SHA-256 hash
+- GPS location telemetry stored against incidents
+- WebSocket real-time event stream for the command center
+- Browser camera + high-accuracy geolocation integration
+- Docker deployment for the API
+- Frontend automatically uses the API when available and keeps a demo fallback when it is offline
 
-## Important
+## Run the backend
 
-This repository is a **prototype/demo**, not a production emergency-dispatch system. Real deployment would require authorized emergency-service integrations, authentication, encryption, privacy controls, evidence retention policies, abuse prevention, accessibility, reliability engineering, and government/agency approval.
+### Docker
 
-## Run locally
+```bash
+docker compose up --build
+```
 
-Open `index.html` in a modern browser, or serve the folder with any static web server. Camera and geolocation permissions work best on `localhost` or HTTPS.
+API: `http://localhost:8000`
+Health check: `http://localhost:8000/api/health`
 
-## GitHub Pages
+### Python
 
-The included workflow deploys the static MVP to GitHub Pages when enabled for the repository.
+```bash
+cd backend
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+Then serve the repository root from a local web server and open the site. Camera/GPS permissions work best on `localhost` or HTTPS.
+
+## API surface
+
+- `POST /api/incidents` — create a report
+- `GET /api/incidents` — priority queue data
+- `GET /api/incidents/{id}` — incident + audit events
+- `PATCH /api/incidents/{id}/status` — operator workflow status
+- `POST /api/incidents/{id}/evidence` — evidence upload + hash
+- `POST /api/incidents/{id}/location` — live location point
+- `WS /ws` — real-time incident/location events
+
+## Next production layer
+
+Replace the local SQLite store with PostgreSQL/PostGIS, add JWT/MFA + RBAC, object storage, Redis/pub-sub, WebRTC signaling + TURN for remote live video, AI-assisted multimodal classification with human review, responder location telemetry, observability, rate limiting and formal emergency-service adapters.
+
+## Safety / deployment boundary
+
+This software does **not** autonomously contact or dispatch real police, ambulance or fire services. Any real emergency-service integration must use authorized agency APIs/workflows and appropriate legal, privacy, security and operational approvals. AI output must remain advisory unless formally validated and authorized.
